@@ -1,0 +1,16 @@
+// Preview deployment config — for sharing review builds with other devs.
+//
+// This is a SEPARATE Worker from the production config (wrangler.jsonc):
+// a different `name` and, deliberately, NO custom-domain `routes`. It is
+// reachable only at its workers.dev URL, so deploying here can never
+// affect the live stastech.org site.
+//
+// Deploy a preview:  npx wrangler deploy -c wrangler.preview.jsonc
+{
+  "name": "stastech-site-preview",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  }
+}

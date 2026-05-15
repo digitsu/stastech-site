@@ -1,0 +1,1108 @@
+<p>STAS 3.0 — Token Protocol Specification (Draft)</p>
+<p><strong>Version:</strong> 3.0. (freeze, confiscation, swap, multisig,
+swap transaction size optimization)</p>
+<section id="scope" class="level3">
+<h3>1. Scope</h3>
+<p>This specification defines the on-chain of the STAS 3.0 tokenised
+UTXO protocol, implemented entirely within Bitcoin SV (BSV) Layer-1
+Script. It covers:</p>
+<p>The layout of a STAS 3.0 locking script (token frame).</p>
+<p>The encoding and semantics of every variable-length field.</p>
+<p>The parameter ordering of the corresponding unlocking script.</p>
+<p>The permitted state transitions (spend, split, merge, swap, freeze,
+confiscate, swap-cancel).</p>
+<p>Numeric opcode-level protocol constants.</p>
+<p>It does <strong>not</strong> specify issuance policy, indexer
+behavior, fee economics, or off-chain wallet conventions.</p>
+</section>
+<section id="normative-references" class="level3">
+<h3>2. Normative References</h3>
+<p><a
+href="https://github.com/stassso/STAS-3-script-templates"><u>Script
+Template STAS 3.0</u></a> — canonical template (authoritative source for
+fixed engine layout).</p>
+<p><a
+href="https://medium.com/@Stas33496115/bitcoin-script-engineering-part-v-e7f3592636ef?postPublishedType=repub"><u>"Bitcoin
+Script Engineering — Part V"</u></a>, Medium, author @Stas33496115
+(authoritative source for semantics of variable fields).</p>
+<p>Bitcoin SV Script opcode semantics (genesis rules) <a
+href="https://wiki.bitcoinsv.io/index.php/Opcodes_used_in_Bitcoin_Script"><u>link</u></a>.</p>
+<p><a href="https://en.bitcoin.it/wiki/Secp256k1"><u>secp256k1</u></a>
+curve parameters.</p>
+</section>
+<section id="terminology" class="level3">
+<h3>3. Terminology</h3>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Term</strong></th>
+<th><strong>Meaning</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frame</strong></td>
+<td>A single STAS 3.0 UTXO (locking script + satoshi value).</td>
+</tr>
+<tr>
+<td><strong>Engine</strong></td>
+<td>The fixed 2.9 Kbytes opcode body that implements the STAS state
+machine; identical across all tokens of an issuance.</td>
+</tr>
+<tr>
+<td><strong>Variable field</strong></td>
+<td>A data push whose content is permitted to change across spends.</td>
+</tr>
+<tr>
+<td><strong>MPKH</strong></td>
+<td>Multi-Public-Key Hash — HASH160 of a P2MPKH redemption script. May
+substitute for a public key hash of P2PKH anywhere the protocol accepts
+an address.</td>
+</tr>
+<tr>
+<td><strong>Sighash preimage</strong></td>
+<td>Concatenation defined by BSV sighash rules; consumed by the engine
+for self-verification via the "ECDSA trick".</td>
+</tr>
+<tr>
+<td><strong>Service field</strong></td>
+<td>Auxiliary data block whose presence is conditional on a flag
+bit.</td>
+</tr>
+<tr>
+<td><strong>Protocol ID</strong></td>
+<td>The 20-byte redemption-address slot; doubles as a cross-UTXO
+identifier of a token issuance.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section" class="level3">
+<h3></h3>
+</section>
+<section id="protocol-overview" class="level3">
+<h3>4. Protocol Overview</h3>
+<p>A STAS 3.0 token is one UTXO whose locking script has the form:</p>
+<p>&lt;owner&gt; &lt;var2&gt; [FIXED ENGINE OPCODES] OP_RETURN
+&lt;protoID&gt; &lt;flags&gt; &lt;svc…&gt; &lt;data…&gt;</p>
+<p>Only the two leading pushes (owner, var2) are allowed to change
+across spends. Any valid state transition produces one or more new
+outputs whose fixed-engine region is byte-identical to the input's
+engine region; the engine itself enforces that invariant via <span
+dir="rtl">“</span>sighash preimage” inspection.</p>
+<p>High-level operations:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Op</strong></th>
+<th><strong>Spending-type</strong></th>
+<th><strong>Transaction-type</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Regular spend / split</td>
+<td>1</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Atomic swap</td>
+<td>1</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Merge</td>
+<td>1</td>
+<td>2–7</td>
+</tr>
+<tr>
+<td>Freeze / unfreeze</td>
+<td>2</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Confiscate</td>
+<td>3</td>
+<td>anything</td>
+</tr>
+<tr>
+<td>Swap cancellation</td>
+<td>4</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="locking-script-frame-format" class="level3">
+<h3>5. Locking Script (Frame) Format</h3>
+<p>Fields are listed in byte order. All pushes use minimal Bitcoin
+Script push encoding unless otherwise stated.</p>
+<section id="executable-region" class="level4">
+<h4>5.1 Executable Region</h4>
+<table>
+<colgroup>
+<col style="width: 18%" />
+<col style="width: 18%" />
+<col style="width: 18%" />
+<col style="width: 18%" />
+<col style="width: 27%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Field</strong></th>
+<th><strong>Length</strong></th>
+<th><strong>Encoding</strong></th>
+<th><strong>Content</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>owner</td>
+<td>20 B</td>
+<td>0x14 &lt;bytes&gt;</td>
+<td><p>1.HASH160(pubkey) (PKH)</p>
+<p>2. HASH160(MPKH redemption script). 3. The special value HASH160("")
+(= b472a266d0bd89c13706a4132ccfb16f7c3b9fcb) - disables signature
+verification for this UTXO.</p></td>
+</tr>
+<tr>
+<td>2</td>
+<td>var2</td>
+<td>maximum pushable value</td>
+<td><ol type="1">
+<li><p>Single push op. Permitted forms: OP_0, OP_1…OP_16,
+OP_1NEGATE,</p></li>
+<li><p>direct push (len ≤75),</p></li>
+<li><p>OP_PUSHDATA1/2/4.</p></li>
+</ol>
+<p>Must obey minimal-encoding.</p></td>
+<td>Second variable field — see §6.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>engine</td>
+<td>~2.9 kB</td>
+<td>Fixed opcode sequence (<a
+href="https://github.com/stassso/STAS-3-script-templates"><u>see
+template</u></a>).</td>
+<td>STAS 3.0 state-machine code. <strong>Byte-for-byte invariant across
+spends.</strong></td>
+</tr>
+<tr>
+<td>4</td>
+<td>OP_RETURN</td>
+<td>1 B</td>
+<td>0x6a</td>
+<td>Marks end of executable script.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section-1" class="level4">
+<h4></h4>
+</section>
+<section id="data-region-after-op_return" class="level4">
+<h4>5.2 Data Region (after OP_RETURN)</h4>
+<p>The data region is never executed, but is inspected by the engine of
+the <em>spending</em> transaction via the sighash preimage. Fields are
+concatenated in order:</p>
+<section id="protocol-id-redemption-address" class="level5">
+<h5>5.2.1 Protocol ID / Redemption Address</h5>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Field</strong></th>
+<th><strong>Length</strong></th>
+<th><strong>Content</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>protoID</td>
+<td>20 B</td>
+<td>HASH160(pubkey) or HASH160(MPKH redeem script) designating the
+issuer / redemption target. Acts as a stable immutable issuance
+fingerprint across all UTXOs of the issuance.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section-2" class="level5">
+<h5></h5>
+</section>
+<section id="flags-field" class="level5">
+<h5>5.2.2 Flags Field</h5>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Field</strong></th>
+<th><strong>Length</strong></th>
+<th><strong>Encoding</strong></th>
+<th><strong>Content</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>flags</td>
+<td>1 B … 255 B (≤75 B recommended)</td>
+<td>Single “push” value</td>
+<td>Bit-field expressing optional capabilities.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section-3" class="level5">
+<h5></h5>
+<p>Flag bit assignment (rightmost bit = bit 0):</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Bit</strong></th>
+<th><strong>Name</strong></th>
+<th><strong>Meaning</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>FREEZABLE</td>
+<td>This issuance permits freeze/unfreeze directly by the freeze
+authority.</td>
+</tr>
+<tr>
+<td>1</td>
+<td>CONFISCATABLE</td>
+<td>This issuance permits confiscation directly by the confiscation
+authority.</td>
+</tr>
+<tr>
+<td>2–N</td>
+<td>reserved</td>
+<td>reserved</td>
+</tr>
+</tbody>
+</table>
+<p>Permitted value encodings (examples):</p>
+<p>FREEZABLE only → push 0x01, or push 0x0001 etc.</p>
+<p>CONFISCATABLE only → push 0x02, or push 0x0002 etc.</p>
+<p>Both → push 0x03, or push 0x0003 etc.</p>
+<p>None → 0x00; or empty push: OP_0/OP_FALSE; or absent in case no data
+attachment follows it.</p>
+</section>
+<section id="service-fields" class="level5">
+<h5>5.2.3 Service Fields</h5>
+<p>Each field is present only when its corresponding flag bit is set.
+Serialized in <strong>left-to-right order of increasing flag
+bit</strong> — i.e. the opposite of bits order within the flags field
+(which is right to left, starting from bit 0).</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Condition</strong></th>
+<th><strong>Field</strong></th>
+<th><strong>Length</strong></th>
+<th><strong>Content</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FREEZABLE set</td>
+<td>freezeAuth</td>
+<td>20 Bytes</td>
+<td>HASH160 of freeze authority (PKH or MPKH).</td>
+</tr>
+<tr>
+<td>CONFISCATABLE set</td>
+<td>confiscateAuth</td>
+<td>20 Bytes</td>
+<td>HASH160 of confiscation authority (PKH or MPKH).</td>
+</tr>
+</tbody>
+</table>
+<p>Authorities are fixed at issuance and immutable thereafter.</p>
+</section>
+<section id="optional-data" class="level5">
+<h5>5.2.4 Optional Data</h5>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Field</strong></th>
+<th><strong>Length</strong></th>
+<th><strong>Content</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>payload</td>
+<td>MAX locking script size/MAX transaction size</td>
+<td>Arbitrary issuer data (metadata, legal pointers …). Not interpreted
+by the engine (rather on the higher level).</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section-4" class="level5">
+<h5></h5>
+</section>
+</section>
+</section>
+<section id="second-variable-field-var2-sub-formats" class="level3">
+<h3>6. Second Variable Field (var2) Sub-formats</h3>
+<p>The first byte of var2 (after its push header) is an <strong>action
+identifier</strong> selecting one of three sub-formats.</p>
+<section id="passive-data-only-action-0x00-or-empty-push"
+class="level4">
+<h4>6.1 Passive / Data-only (action = 0x00 or empty push)</h4>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Byte range</strong></th>
+<th><strong>Field</strong></th>
+<th><strong>Meaning</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>0x00 <em>(or empty push)</em></td>
+<td>Signals no active state.</td>
+</tr>
+<tr>
+<td>1…n</td>
+<td>arbitrary</td>
+<td>Assigned by UTXO owner at his discretion. Treated by the script as
+tag-along only; may be used for per-UTXO notes or higher level
+code.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section-5" class="level4">
+<h4></h4>
+</section>
+<section id="frozen-marker-action-0x02" class="level4">
+<h4>6.2 Frozen Marker (action = 0x02)</h4>
+<p>Produced by the freeze operation (§9.2). Construction rules:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Original var2 form</strong></th>
+<th><strong>Frozen var2 form</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>empty push (OP_0)</td>
+<td>OP_2 (opcode 0x52)</td>
+</tr>
+<tr>
+<td>pushdata bytelength, OP_PUSHDATA1/2/4</td>
+<td>Prepend 0x02 to the pushed bytes</td>
+</tr>
+<tr>
+<td>OP_1, OP_3…OP_16, OP_1NEGATE</td>
+<td>Convert to pushdata form (values pushed on stack by these opcodes),
+then prepend 0x02</td>
+</tr>
+</tbody>
+</table>
+<p>Unfreezing (§9.2) strictly reverses the above mapping.</p>
+</section>
+<section id="swap-descriptor-action-0x01" class="level4">
+<h4>6.3 Swap Descriptor (action = 0x01)</h4>
+<p>Fixed 61-byte minimum layout:</p>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Offset</strong></th>
+<th><strong>Field</strong></th>
+<th><strong>Length</strong></th>
+<th><strong>Encoding</strong></th>
+<th><strong>Content</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>action</td>
+<td>1 B</td>
+<td>0x01</td>
+<td>Swap marker.</td>
+</tr>
+<tr>
+<td>1</td>
+<td>requestedScriptHash</td>
+<td>32 B</td>
+<td>raw</td>
+<td>SHA256 (single) of the full locking script the maker is willing to
+accept aka requested asset.</td>
+</tr>
+<tr>
+<td>33</td>
+<td>receiveAddr</td>
+<td>20 B</td>
+<td>raw</td>
+<td>HASH160 of the address/MPKH to which the counter-asset is delivered.
+Also identifies the maker for cancellation (§9.4).</td>
+</tr>
+<tr>
+<td>53</td>
+<td>rateNumerator</td>
+<td>4 B</td>
+<td>little-endian uint32</td>
+<td>Numerator of exchange rate.<br />
+If numerator is zero, script skips rate check</td>
+</tr>
+<tr>
+<td>57</td>
+<td>rateDenominator</td>
+<td>4 B</td>
+<td>little-endian uint32</td>
+<td>Denominator of exchange rate.</td>
+</tr>
+<tr>
+<td>61</td>
+<td>next (var2 value after the swap)</td>
+<td>variable</td>
+<td>optional</td>
+<td>Any next var2 value after the swap or may be absent at all.<br />
+E.g. recursive swap descriptor (see below).</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Exchange rate semantics:</strong> given an input amount A of
+the wanted asset, the output amount delivered to receiveAddr is:</p>
+<p>A' = A × (rateNumerator / rateDenominator)</p>
+<p>The length of the amount/value field in Bitcoin (both A' and A in the
+formula) is 8 bytes.<br />
+It is multiplied first to scale the dividend, in order to preserve more
+information before division, which reduces remainder loss.</p>
+<p>Note, next field is simply contains the value swap maker requires to
+be assigned (by swap taker) after the swap into 2nd variable field of
+his new UTXO (in which he receives his requested assets).</p>
+<p><strong>As a specific use-case,</strong> next permits a
+<strong>nested list of configurations for recursive swaps</strong>
+through a chain of (action byte, requestedScriptHash, receiveAddr, rate,
+next) nested tuples, allowing a received swapped assets to be right away
+configured to be swapped again with next configuration at will.<br />
+Encoding is the same as the top-level descriptor, <del>minus</del>
+<strong>including</strong> the leading action byte. Note, the terminal
+element carries only (action byte, requestedScriptHash, receiveAddr,
+rate) with no further next field.<del><br />
+</del></p>
+</section>
+</section>
+<section id="unlocking-script-spend-witness-format" class="level3">
+<h3>7. Unlocking Script (Spend Witness) Format</h3>
+<p>Parameters are pushed in the order listed. "Empty" denotes
+OP_FALSE/OP_0 empty string push.</p>
+<table>
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 24%" />
+<col style="width: 24%" />
+<col style="width: 27%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>#</strong></th>
+<th><strong>Parameter</strong></th>
+<th><strong>Type</strong></th>
+<th><strong>Notes</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>out1_amount</td>
+<td>Unsigned LE (up to 8 B) <del>or empty</del></td>
+<td>STAS output 1 satoshi value.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>out1_addr</td>
+<td>20 B <del>or empty</del></td>
+<td>Owner of STAS output 1.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>out1_var2</td>
+<td>variable push</td>
+<td>var2 field of STAS output 1.</td>
+</tr>
+<tr>
+<td>4–6</td>
+<td>out2_*</td>
+<td>—</td>
+<td>Optional STAS output 2.</td>
+</tr>
+<tr>
+<td>7–9</td>
+<td>out3_*</td>
+<td>—</td>
+<td>Optional STAS output 3.</td>
+</tr>
+<tr>
+<td>10–12</td>
+<td>out4_*</td>
+<td>—</td>
+<td>Optional STAS output 4 (max 4 STAS outputs per spend).</td>
+</tr>
+<tr>
+<td>13</td>
+<td>change_amount</td>
+<td>Unsigned LE or empty (up to 8 B)</td>
+<td>Optional non-STAS change output <em>satoshi</em> value.</td>
+</tr>
+<tr>
+<td>14</td>
+<td>change_addr</td>
+<td>20 B or empty</td>
+<td>Optional change output P2PKH raw address (PKH).</td>
+</tr>
+<tr>
+<td>15</td>
+<td>noteData</td>
+<td>0 … 65 533 B or OP_FALSE</td>
+<td>Payload for trailing OP_FALSE OP_RETURN note output.</td>
+</tr>
+<tr>
+<td>16</td>
+<td>fundIdx</td>
+<td>4 B LE or OP_FALSE</td>
+<td>Output index (in funding transaction) spent through this input
+(prev-vOut).</td>
+</tr>
+<tr>
+<td>17</td>
+<td>fundTxid</td>
+<td>32 B or OP_FALSE</td>
+<td>TXID of funding transaction, which output is spent through this
+input (prev-tx).</td>
+</tr>
+<tr>
+<td>18</td>
+<td>txType</td>
+<td>1 B</td>
+<td>Transaction-type (§8.1). Always present.</td>
+</tr>
+<tr>
+<td>19</td>
+<td>sighashPreimage</td>
+<td>variable</td>
+<td>BIP-143-style sighash preimage of this input.</td>
+</tr>
+<tr>
+<td>20</td>
+<td>spendType</td>
+<td>1 B</td>
+<td>Spending-type (§8.2). Always present.</td>
+</tr>
+<tr>
+<td>21…</td>
+<td>authz</td>
+<td>variable</td>
+<td><p><u>3 structural variants:</u></p>
+<ol type="1">
+<li><p>P2PKH:<br />
+Signature + public key</p></li>
+<li><p>P2MPKH:<br />
+&lt;multisig-dummy OP_0&gt; + &lt;signature/s array&gt; + &lt;P2MPKH
+redemption script&gt;.</p></li>
+<li><p>To skip auth:<br />
+single emtpy string push (by OP_0/OP_FALSE).</p></li>
+</ol></td>
+</tr>
+</tbody>
+</table>
+<p>In swap and merge transactions, additional parameters follow the
+above block (see §9.3, §9.5).</p>
+<p>*STAS transactions can split into max 4 STAS outputs.<br />
+1st STAS output is a mandatory one, for which 3 first parameters values
+are always passed/present. While following 2-4 outputs are optional STAS
+split-outputs, the absence of these 2–4 outputs is not designated by
+passing any specific values as e.g. OP_0/OP_FALSE instead of their
+triplet parameters — all their related triplets are simply skipped in
+unlocking script, treated as non-existing.</p>
+<p>.</p>
+<p>**Following 13-17 parameters in the table are optional, but their
+non-existence must be marked to unlocking script by passing
+OP_0/OP_FALSE in their places.</p>
+</section>
+<section id="control-codes" class="level3">
+<h3>8. Control Codes</h3>
+<section id="transaction-type-txtype" class="level4">
+<h4>8.1 Transaction-type (txType)</h4>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Value</strong></th>
+<th><strong>Meaning</strong></th>
+<th><strong>Additional trailing params</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Regular spend (split or 1-in/1-out)</td>
+<td>none</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Atomic swap</td>
+<td><p>Counterparty’s:</p>
+<ol type="1">
+<li><p>locking script,</p></li>
+<li><p>transaction pieces count,</p></li>
+<li><p>transaction pieces array</p></li>
+</ol></td>
+</tr>
+<tr>
+<td>2</td>
+<td>Merge, 2 pieces</td>
+<td>piece count (2), array of 2 pieces</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Merge, 3 pieces</td>
+<td>piece count (3), array of 3 pieces</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Merge, 4 pieces</td>
+<td>piece count (4), array of 4 pieces</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Merge, 5 pieces</td>
+<td>piece count (5), array of 5 pieces</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Merge, 6 pieces</td>
+<td>piece count (6), array of 6 pieces</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Merge, 7 pieces</td>
+<td>piece count (7), array of 7 pieces</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section-6" class="level4">
+<h4></h4>
+<p>The piece count is passed explicitly and its value in the range [2-7]
+designates both merge transaction type and the number of transaction
+pieces in array following it (to be used in counterparty<span
+dir="rtl">’</span>s transaction reconstruction).</p>
+<p>Arrays of pieces are delimited by space (<span dir="rtl">‘ ‘</span>)
+character.</p>
+</section>
+<section id="spending-type-spendtype" class="level4">
+<h4>8.2 Spending-type (spendType)</h4>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Value</strong></th>
+<th><strong>Meaning</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Reserved / undefined.</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Regular spend, split, merge, or swap.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Freeze or unfreeze (requires freeze authority).</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Confiscation (requires confiscation authority).</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Swap cancellation (requires swap initiator/maker
+authorization).</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section-7" class="level4">
+<h4></h4>
+</section>
+</section>
+<section id="operational-semantics" class="level3">
+<h3>9. Operational Semantics</h3>
+<section id="regular-spend-split" class="level4">
+<h4>9.1 Regular Spend / Split</h4>
+<p>txType = 0, spendType = 1.</p>
+<p>Up to 4 STAS outputs may be produced.</p>
+<p>Each STAS output copies the engine region byte-for-byte and sets its
+own owner and var2 (unless specific conditions enforce their values,
+e.g. divisible swap).</p>
+<p>Sum of STAS output amounts MUST equal sum of STAS input amounts.</p>
+<p>Signature validates against the input UTXO's owner under P2PKH or
+P2MPKH unlocking format.</p>
+</section>
+<section id="freeze-unfreeze" class="level4">
+<h4>9.2 Freeze / Unfreeze</h4>
+<p>spendType = 2.</p>
+<p>Exactly one STAS output.</p>
+<p>owner and all other data fields MUST be byte-identical to the input,
+<strong>except</strong> var2, which MUST be rewritten/prepended per §6.2
+(forward for freeze, reverse for unfreeze).</p>
+<p>Signature/authorization MUST validate under the freezeAuth service
+field, which must be present.</p>
+<p>The FREEZABLE flag MUST be set in the input frame.</p>
+</section>
+<section id="confiscation" class="level4">
+<h4>9.3 Confiscation</h4>
+<p>spendType = 3.</p>
+<p>No restriction on number of outputs or on owner and var2 fields of
+outputs.</p>
+<p>Confiscation authority may concurrently freeze the destination
+frame.</p>
+<p>Authorization MUST validate under confiscateAuth service field, which
+must be present.</p>
+<p>CONFISCATABLE flag MUST be set in the input frame.</p>
+<p>Highest precedence of all operations.</p>
+</section>
+<section id="swap-cancellation" class="level4">
+<h4>9.4 Swap Cancellation</h4>
+<p>spendType = 4.</p>
+<p>Single output whose owner equals the input's var2.receiveAddr.</p>
+<p>Authorization MUST validate under that same receiveAddr (P2PKH or
+P2MPKH unlocking format).</p>
+<p>Input var2 MUST be a swap descriptor (action 0x01).</p>
+<p>Cannot be combined with an executing swap in the same
+transaction.</p>
+</section>
+<section id="atomic-swap" class="level4">
+<h4>9.5 Atomic Swap</h4>
+<p>txType = 1, spendType = 1 on both STAS inputs.</p>
+<p>Both inputs' var2 may carry compatible satisfied (by constructed
+transaction) swap descriptors; or at least one of them MUST carry swap
+descriptor with configuration, which is satisfied by the counterparty
+lacking such a swap descriptor.</p>
+<p>Counterparty script is supplied as a trailing unlocking parameter
+together followed by a piece count and (followed by) the reverse-ordered
+array of pieces that remain after excising the counterparty asset script
+form its preceding transaction.<br />
+The excised script constitutes all the token data right after the two
+variable parameters at the very start of the STAS script.<br />
+The reverse-ordered array of pieces is delimited by space (<span
+dir="rtl">‘ ‘</span>) character.</p>
+<p>Output index assignment:</p>
+<p>Requested asset is received at the output matching the
+<strong>initiator's</strong> input index.</p>
+<p>Given asset is delivered at the output matching the
+<strong>opposite</strong> (counterparty) input index.</p>
+<p>Remainder / split outputs inherit the source UTXO's both owner and
+var2 fields.</p>
+<p>If either owner field equals HASH160("")
+(=b472a266d0bd89c13706a4132ccfb16f7c3b9fcb), no signature from that side
+(leg) is required (arbitrator-free swap), i.e. that input is spent
+without any signing involved.</p>
+<p>An arbitrator is an optional entity/entities designated by a swap
+party (one of both) via assignment of arbitrator’ address/MPKH in owner
+field to be required to sign their leg of the swap.</p>
+<p>When both parties have swap configurations in their UTXOs, and both
+of them assigned specific arbitrator/s requirements, each of the legs of
+the swap enforces presence of signature/s of its corresponding required
+arbitrator/s (assigned in their 1st variable fields). </p>
+</section>
+<section id="precedence" class="level4">
+<h4>9.6 Precedence</h4>
+<p>From highest to lowest, when multiple modes appear applicable:</p>
+<p>Confiscation</p>
+<p>Freeze / unfreeze</p>
+<p>Swap</p>
+<p>Regular spend</p>
+<p>Freeze and confiscate MUST NOT burn tokens.<br />
+Only the issuer/s, after receiving the tokens (from token owner/s) to
+protoID, may redeem supply by spending it from protoID (to any other
+address/MPKH at his/their discretion).</p>
+</section>
+</section>
+<section id="authorization-schemes" class="level3">
+<h3>10. Authorization Schemes</h3>
+<section id="p2pkh-classical" class="level4">
+<h4>10.1 P2PKH (classical)</h4>
+<p>owner = HASH160(pubkey), 20 B.</p>
+<p>Unlocking: &lt;sig&gt; &lt;pubkey&gt;.</p>
+<p>Engine validates OP_HASH160 (pubkey) == owner and OP_CHECKSIG.</p>
+</section>
+<section id="p2mpkh-pay-to-multi-public-key-hash" class="level4">
+<h4>10.2 P2MPKH (Pay-to-Multi-Public-Key-Hash)</h4>
+<p>owner = single 20-byte MPKH -&gt; HASH160(P2MPKH redeem script),
+variable length.</p>
+<p>Unlocking: dummy value OP_0, array of &lt;sig&gt;, P2MPKH redeem
+script</p>
+<p>Engine validates fixed 70-byte P2MPKH locking script:<br />
+OP_HASH160 (P2MPKH redeem script) == owner and OP_CHECKMULTISIG</p>
+<p>The fixed 70-byte P2MPKH locking script (for n
+<strong>&lt;=</strong>5):</p>
+<p>OP_DUP OP_HASH160 &lt;MPKH&gt; OP_SIZE</p>
+<p>21 OP_EQUAL OP_IF</p>
+<p>OP_CHECKSIG</p>
+<p>OP_ELSE</p>
+<blockquote>
+<p>OP_1 OP_SPLIT</p>
+<p>OP_1 OP_SPLIT OP_IFDUP OP_IF OP_SWAP OP_SPLIT OP_ENDIF</p>
+<p>OP_1 OP_SPLIT OP_IFDUP OP_IF OP_SWAP OP_SPLIT OP_ENDIF</p>
+<p>OP_1 OP_SPLIT OP_IFDUP OP_IF OP_SWAP OP_SPLIT OP_ENDIF</p>
+<p>OP_1 OP_SPLIT OP_IFDUP OP_IF OP_SWAP OP_SPLIT OP_ENDIF</p>
+<p>OP_1 OP_SPLIT OP_IFDUP OP_IF OP_SWAP OP_SPLIT OP_ENDIF</p>
+<p>OP_CHECKMULTISIG</p>
+</blockquote>
+<p>OP_ENDIF</p>
+<p><strong>Important note:</strong> fixed P2MPKH locking script format
+as provided here, is used explicitly only before and after STAS
+token<span dir="rtl">’</span>s lifecycle, namely at issuance and
+redemption UTXOs (preceding and terminating its life-cycle).<br />
+STAS token outputs implement exactly same logic of this fixed P2MPKH
+script template, but do not have it as explicit sub-template in
+them.</p>
+<p>Hex fragments embedded in the canonical engine: 4676a914 &lt;MPKH&gt;
+888201218763ac67517f517f73637c7f68517f73637c7f68517f73637c7f68517f73637c7f68517f73637c7f68ae68<br />
+(prefix 0x46 = 70-byte script length).</p>
+<p>n ≤ 5 public keys (5 is max in the current version); expandable at ~7
+byte per additional key.</p>
+<p>m = required signatures (out of n); threshold.</p>
+<p>Unlocking stack for multisig path: OP_0 &lt;sig_1&gt; … &lt;sig_m&gt;
+&lt;redemption_script&gt;.</p>
+<p>&lt;redemption_script&gt;, similarly to multisig locking script
+constitutes of:<br />
+m &lt;pubkey_1&gt; … &lt;pubkey_m&gt; n<br />
+<em>note, public keys are prepended by length prefix.</em><br />
+<u>An example:</u><br />
+<em>‘03’ + ‘21’ + publicKey1 + ‘21’ + publicKey2 + ‘21’ + publicKey3 +
+‘21’ + publicKey4 + ‘21’ + publicKey5 + ‘05’</em><br />
+// where 0x21 stands for pushdata of compressed public key length of 33
+bytes (preceding public key itself)<br />
+// first byte: m (required signatures) — ‘03’<br />
+// last byte: n (total public keys) — ‘05’<br />
+// public keys <strong>only</strong> are prepended by length prefix (as
+in ASM format).</p>
+<p>Single-sig spend path is taken when the supplied "pubkey" is exactly
+33 bytes (size 0x21), making individual spends from an MPKH address
+indistinguishable on-chain from a normal P2PKH spend.</p>
+</section>
+<section id="signature-suppression-mode" class="level4">
+<h4>10.3 Signature-Suppression Mode</h4>
+<p>Setting owner to HASH160("") =
+b472a266d0bd89c13706a4132ccfb16f7c3b9fcb instructs the engine to accept
+OP_FALSE in place of all auth unlocking script parameters – dummy-value
+(if it<span dir="rtl">’</span>s P2MPKH spending case) signature/s and
+<span dir="rtl">“</span>public key”/”P2MPKH redemption script”, in order
+to skip all ECDSA checks for that party. Used in divisible swaps to
+indicate swap as arbitrator-free. Setting (at swap configuration)
+var2.receiveAddr to HASH160("") may be used to indicate the same
+arbitrator-free swap type for a next iteration in nested recursive swap
+configuration case.</p>
+</section>
+</section>
+<section id="trailing-per-transaction-note-output-data-memo"
+class="level3">
+<h3>11. Trailing Per-transaction Note Output (Data Memo)</h3>
+<p>Every STAS 3.0 transaction MAY carry exactly one trailing "note"
+output of the form:</p>
+<p>OP_FALSE OP_RETURN &lt;payload&gt;</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Field</strong></th>
+<th><strong>Limit</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>payload</td>
+<td>≤ 65 533 B (0xFFFF − 2, reserving two opcodes)</td>
+</tr>
+</tbody>
+</table>
+<p>If no note is desired the unlocking script MUST supply a single
+OP_FALSE in the noteData slot.</p>
+</section>
+<section id="protocol-constants" class="level3">
+<h3>12. Protocol Constants</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th><strong>Constant</strong></th>
+<th><strong>Value (hex)</strong></th>
+<th><strong>Purpose</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HALF_N</td>
+<td>414136d08c5ed2bf3ba048afe6dcaebafe (17 B)</td>
+<td>Half of secp256k1 group order n; used for ECDSA-trick signature
+synthesis.</td>
+</tr>
+<tr>
+<td>SIG_PREFIX_DER</td>
+<td>3044022079BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980220</td>
+<td>Fixed DER prefix for synthesised signature (r = Gx).</td>
+</tr>
+<tr>
+<td>PUBKEY_A</td>
+<td>038ff83d8cf12121491609c4939dc11c4aa35503508fe432dc5a5c1905608b9218</td>
+<td>One of two fixed verification keys used by the ECDSA trick.</td>
+</tr>
+<tr>
+<td>PUBKEY_B</td>
+<td>023635954789a02e39fb7e54440b6f528d53efd65635ddad7f3c4085f97fdbdc48</td>
+<td>Alternate verification key selected when preimage parity
+differs.</td>
+</tr>
+<tr>
+<td>P2PKH_PREFIX</td>
+<td>1976a914 / 88ac</td>
+<td>Classical 25-byte P2PKH serialization used when emitting change
+outputs.</td>
+</tr>
+<tr>
+<td>P2MPKH_PREFIX</td>
+<td>4676a914 /
+888201218763ac67517f517f73637c7f68517f73637c7f68517f73637c7f68517f73637c7f68517f73637c7f68ae68</td>
+<td>70-byte P2MPKH redemption script body components.</td>
+</tr>
+<tr>
+<td>NULL_DATA_PREFIX</td>
+<td>006a</td>
+<td>OP_FALSE OP_RETURN introducer for trailing note outputs.</td>
+</tr>
+<tr>
+<td>EMPTY_HASH160</td>
+<td>b472a266d0bd89c13706a4132ccfb16f7c3b9fcb</td>
+<td>HASH160("") — sentinel disabling signature verification, in swap
+case - designating "no arbitrator".</td>
+</tr>
+<tr>
+<td>MAX_NOTE_BYTES</td>
+<td>0xfffd (65 533)</td>
+<td>Upper bound on trailing note payload.</td>
+</tr>
+<tr>
+<td>MAX_DATA_BYTES</td>
+<td>0xffffffff (~4.29 GB)</td>
+<td>Upper bound on post-OP_RETURN optional data.</td>
+</tr>
+<tr>
+<td>MAX_FLAGS_BYTES</td>
+<td>0xff (255)</td>
+<td>Upper bound on flags field length; ≤75 recommended.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="section-8" class="level3">
+<h3></h3>
+</section>
+<section id="migration-notes-from-stas-2.0" class="level3">
+<h3>13. Migration Notes (from STAS 2.0)</h3>
+<p>Informative.</p>
+<p>Issuance / redemption outputs become P2MPKH rather than P2PKH locking
+scripts, requiring wallets to update spending format accordingly.</p>
+<p>Script identification logic MUST account for the variable length of
+var2; a fixed-offset scan will no longer locate the engine region.</p>
+<p>Both assets in a swap may now split; STAS 2.0 permitted splitting on
+only one side.</p>
+<p>Unlocking scripts gain:</p>
+<p>a third parameter per STAS output (var2) (couples turned into
+triplets per STAS output),</p>
+<p>a new spendType parameter,</p>
+<p>a restructured transaction-type swap case (value ‘1’) trailing
+parameters (instead of whole preceding transaction -&gt; counterparty
+script, piece count, array of pieces).</p>
+</section>
+<section id="notes" class="level3">
+<h3>14. Notes</h3>
+<blockquote>
+<p>If protoID is changed, the ID of the token changes, to issue various
+assets under the same main issuance ID, sub-field should be added by the
+issuer inside data-attachment (behind OP_RETURN) for higher-level
+software to interpret its sub-type.</p>
+</blockquote>
+</section>

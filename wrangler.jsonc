@@ -1,0 +1,22 @@
+// Cloudflare Workers config for static-asset deployment.
+//
+// This site is a Next.js static export (`next build` with output: "export"
+// -> ./out). Declaring `assets` without a `main` entry makes this a
+// static-asset-only Worker — Cloudflare serves the contents of ./out via its
+// CDN, no runtime needed.
+//
+// `_redirects` and `_headers` files inside ./out are respected the same way
+// they are on Cloudflare Pages.
+{
+  "name": "stastech-site",
+  "compatibility_date": "2025-01-01",
+  // Custom-domain bindings: route these hostnames directly into this Worker.
+  "routes": [
+    { "pattern": "stastech.org", "custom_domain": true },
+    { "pattern": "www.stastech.org", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  }
+}

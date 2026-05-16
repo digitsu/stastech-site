@@ -45,12 +45,15 @@ export default function ProofStrip() {
             In production
           </span>
           {logos.map((logo) => (
-            <span
+            <a
               key={logo.name}
-              className="text-lg font-semibold text-fg-soft"
+              href={logo.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-semibold text-fg-soft transition-colors hover:text-white"
             >
               {logo.name}
-            </span>
+            </a>
           ))}
         </div>
 

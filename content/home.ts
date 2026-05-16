@@ -17,7 +17,7 @@ export type Cta = { label: string; href: string };
 
 export type Metric = { value: string; label: string };
 
-export type Logo = { name: string };
+export type Logo = { name: string; href: string };
 
 export type WithoutWithRow = { without: string; with: string };
 
@@ -62,10 +62,10 @@ export const links = {
   scriptTemplates: "https://github.com/stassso/STAS-3-script-templates",
   // TODO(links): confirm a real contact channel for "talk to an engineer".
   contact: "https://github.com/stassso",
-  // TODO(links): no Centi case-study page exists yet.
-  centiCaseStudy: "#",
-  // TODO(links): no CERTIHASH case-study page exists yet.
-  certihashCase: "#",
+  // Verified-integrator sites.
+  centi: "https://centi.ch",
+  certihash: "https://sentinelnode.online",
+  dxs: "https://dxs.app",
   // TODO(links): URL for "The Last Missing Piece" long-form thesis.
   article: "#",
 } as const;
@@ -92,7 +92,11 @@ export const proofStrip = {
     { value: "1,000,000+", label: "TPS tested (Teranode)" },
     { value: "150M+", label: "tx/day (Consigliere stress test)" },
   ] as Metric[],
-  logos: [{ name: "Centi" }, { name: "CERTIHASH" }, { name: "DXS" }] as Logo[],
+  logos: [
+    { name: "Centi", href: links.centi },
+    { name: "CERTIHASH", href: links.certihash },
+    { name: "DXS", href: links.dxs },
+  ] as Logo[],
   article: {
     lead: "Read the full thesis:",
     title:
@@ -170,10 +174,7 @@ export const tabs: AudienceTab[] = [
       },
     ],
     primaryCta: { label: "Talk to an issuer-side engineer", href: links.contact },
-    secondaryCta: {
-      label: "See the Centi case study",
-      href: links.centiCaseStudy,
-    },
+    secondaryCta: { label: "See the Centi case study", href: links.centi },
     trustTriple:
       "MIT-licensed. Centi already shipped on it with a Swiss-bank-guaranteed stablecoin. First production token usually takes a sprint, not a quarter.",
   },
@@ -389,7 +390,7 @@ console.log("Issued in tx:", issueTx.id);`,
       },
     ],
     primaryCta: { label: "Book a technical briefing", href: links.contact },
-    secondaryCta: { label: "See the CERTIHASH case", href: links.certihashCase },
+    secondaryCta: { label: "See the CERTIHASH case", href: links.certihash },
     trustTriple:
       "MIT-licensed. Built with IBM Consulting. Designed for 10-year integrations.",
   },

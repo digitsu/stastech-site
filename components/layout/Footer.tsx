@@ -25,11 +25,11 @@ export default function Footer() {
           href={X_URL}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Follow STAS on X"
+          aria-label="Follow or contact STAS on X"
           className="group inline-flex items-center gap-2 rounded-md border border-edge bg-surface px-4 py-2 text-sm font-medium text-fg transition-colors hover:border-accent hover:text-white"
         >
           <XIcon className="h-4 w-4 text-fg-muted transition-colors group-hover:text-accent" />
-          <span>Follow @StasToken</span>
+          <span>Follow/Contact @StasToken</span>
         </a>
         <p className="text-center text-sm text-fg-faint">
           &copy; {new Date().getFullYear()} STAS Token Protocol. MIT-licensed.

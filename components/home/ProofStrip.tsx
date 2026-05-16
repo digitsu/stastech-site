@@ -3,7 +3,6 @@
  * Four metrics, a verified-integrator logo row, and an anchor to the
  * long-form thesis. Renders directly under the hero on every view.
  */
-import Link from "next/link";
 import { proofStrip } from "@/content/home";
 
 function ArrowIcon() {
@@ -58,15 +57,17 @@ export default function ProofStrip() {
         </div>
 
         {/* Long-form thesis anchor */}
-        <Link
+        <a
           href={article.href}
+          target="_blank"
+          rel="noopener noreferrer"
           className="mt-8 inline-flex items-center gap-2 text-sm text-accent transition-colors hover:text-accent-hover"
         >
           <span>
             {article.lead} {article.title}
           </span>
           <ArrowIcon />
-        </Link>
+        </a>
       </div>
     </section>
   );

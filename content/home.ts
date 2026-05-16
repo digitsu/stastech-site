@@ -60,14 +60,15 @@ export const links = {
   swapDocs: "/docs/swap",
   github: "https://github.com/stassso",
   scriptTemplates: "https://github.com/stassso/STAS-3-script-templates",
-  // TODO(links): confirm a real contact channel for "talk to an engineer".
-  contact: "https://github.com/stassso",
+  // Contact: opens an X compose window addressed to @StasToken.
+  contact: "https://x.com/intent/tweet?text=%40StasToken%20",
   // Verified-integrator sites.
   centi: "https://centi.ch",
   certihash: "https://sentinelnode.online",
   dxs: "https://dxs.app",
-  // TODO(links): URL for "The Last Missing Piece" long-form thesis.
-  article: "#",
+  // "The Last Missing Piece" thesis — Bitcoin Script Engineering Part V.
+  article:
+    "https://medium.com/@Stas33496115/bitcoin-script-engineering-part-v-e7f3592636ef",
 } as const;
 
 /* ---- hero (section 3) ---------------------------------------------- */

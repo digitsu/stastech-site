@@ -239,16 +239,15 @@ export default function SwapDocs() {
               <li>the array of pieces that remain after excising the counterparty&apos;s asset script from their preceding transaction</li>
             </ul>
             <p className="text-sm text-[#c9d1d9] mt-2">
-              Pieces in the array are <strong className="text-white">length-prefixed</strong>: each piece is
-              preceded by a single byte holding its length, then that many bytes of body. No separator between
-              pieces. The engine&apos;s split atom is{' '}
-              <code className="text-[#58a6ff]">OP_1 OP_SPLIT OP_IFDUP OP_IF OP_SWAP OP_SPLIT OP_ENDIF</code>{' '}
-              — it reads exactly one byte as the length prefix, then uses that as a script-number index for{' '}
-              <code className="text-[#58a6ff]">OP_SPLIT</code>. Bitcoin Script numbers reserve the high bit as
-              a sign bit, so each piece <strong className="text-white">must fit in 127 bytes</strong>; pieces
-              larger than that wrap to a negative offset and the engine rejects the spend. Encoders should
-              partition the counterparty preceding-tx into ≤127-byte chunks accordingly. The piece count is passed explicitly; for the
-              merge transaction-types <code className="text-[#58a6ff]">2</code>–<code className="text-[#58a6ff]">7</code>{' '}
+              Each piece is supplied as its own <strong className="text-white">separate OP_PUSHDATA
+              operation</strong> in the unlocking script — not concatenated into one blob and not framed
+              with any inline length prefix. The engine consumes them as separate stack items (using{' '}
+              <code className="text-[#58a6ff]">OP_DEPTH</code> with{' '}
+              <code className="text-[#58a6ff]">OP_ROLL</code> to pull a variable number of pushes off the
+              stack, then <code className="text-[#58a6ff]">OP_CAT</code> them back into the reconstructed
+              preceding transaction). There is no per-piece size limit beyond Bitcoin&apos;s standard
+              pushdata range. The piece count is passed explicitly; for the merge transaction-types{' '}
+              <code className="text-[#58a6ff]">2</code>–<code className="text-[#58a6ff]">7</code>{' '}
               the count equals the merge variant value.
             </p>
           </div>

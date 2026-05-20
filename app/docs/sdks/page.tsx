@@ -35,7 +35,7 @@ const currentSdks = [
       'Provenance validation via indexer integration',
       'STAS-BTG research template (not recommended for production) — on-chain prev-TX proof verification with optional issuer-checkpoint path. Motivation is valid: the standard STAS script does not enforce that merged inputs belong to the same issuance pool — that invariant lives in the indexer, not the script. The blocker is naive prev-TX embedding, which grows roughly geometrically under repeated merges. Implementation is incomplete (engine-verify tests fail). Production deployments should use indexer-based provenance for now. See /docs/stas-btg.',
       'P2MPKH support for issuance and redemption',
-      'Full coverage for STAS 3.0 v0.2.1 (finalized) — OP_SPLIT-based 70-byte P2MPKH body, scaled-dividend swap rate math, owner-keyed arbitrator-free swaps, space-delimited swap-piece arrays, recursive next, P2MPKH redeem buffer with raw m/n bytes',
+      'Full coverage for STAS 3.0 v0.2.3 (finalized) — OP_SPLIT-based 70-byte P2MPKH body, scaled-dividend swap rate math, owner-keyed arbitrator-free swaps, separate-pushdata swap-piece arrays, recursive next, P2MPKH redeem buffer with raw m/n bytes',
     ],
   },
   {
@@ -57,7 +57,7 @@ const currentSdks = [
       'Bundle Factory for multi-recipient payouts',
       'Provenance validation via indexer integration',
       'P2MPKH support for issuance and redemption',
-      'Full coverage for STAS 3.0 v0.2.1 (finalized) — OP_SPLIT-based 70-byte P2MPKH body, scaled-dividend swap rate math, owner-keyed arbitrator-free swaps, space-delimited swap-piece arrays, recursive next, P2MPKH redeem buffer with raw m/n bytes',
+      'Full coverage for STAS 3.0 v0.2.3 (finalized) — OP_SPLIT-based 70-byte P2MPKH body, scaled-dividend swap rate math, owner-keyed arbitrator-free swaps, separate-pushdata swap-piece arrays, recursive next, P2MPKH redeem buffer with raw m/n bytes',
     ],
   },
   {

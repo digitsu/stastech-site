@@ -702,12 +702,12 @@ length = 2 + 34·n   ;   n ≤ 5`}
               <tr className="border-b border-[#21262d]">
                 <td className="py-2 pr-4"><code className="text-[#58a6ff]">1</code></td>
                 <td className="py-2 pr-4">Atomic swap</td>
-                <td className="py-2">counterparty locking script, piece count, length-prefixed piece array (each piece: 1-byte length + body, no separator; max 127 B/piece)</td>
+                <td className="py-2">counterparty locking script, piece count, piece array (each piece supplied as its own separate OP_PUSHDATA push in the unlocking script — no inline length prefix, no per-piece size limit beyond standard pushdata)</td>
               </tr>
               <tr className="border-b border-[#21262d]">
                 <td className="py-2 pr-4"><code className="text-[#58a6ff]">2</code>–<code className="text-[#58a6ff]">7</code></td>
                 <td className="py-2 pr-4">Merge variants (value = piece count)</td>
-                <td className="py-2">piece count (matches txType), length-prefixed piece array of that length (each piece: 1-byte length + body, no separator; max 127 B/piece)</td>
+                <td className="py-2">piece count (matches txType), piece array of that length (each piece supplied as its own separate OP_PUSHDATA push in the unlocking script — no inline length prefix, no per-piece size limit beyond standard pushdata)</td>
               </tr>
             </tbody>
           </table>

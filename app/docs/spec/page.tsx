@@ -1,34 +1,75 @@
 /**
  * app/docs/spec/page.tsx
  *
- * Renders the STAS 3.0 canonical specification as a browsable HTML page.
+ * Landing page for the STAS 3.0 canonical specification. The page intentionally
+ * does NOT inline the full protocol document — readers download the .docx for
+ * the authoritative text. The page only surfaces a short bullet list of
+ * protocol highlights, a download button, and a link to the script-template
+ * source on GitHub.
  *
- * The spec content and the downloadable docx are produced by
- * scripts/build-spec.sh, which writes a manifest.json alongside them
- * recording which files are the current canonical pair. This page reads
- * that manifest at build time (module scope in App Router — runs during
- * static export) and uses the recorded filenames for both the inline HTML
- * render and the download button.
+ * The downloadable docx filename is recorded in public/spec/manifest.json by
+ * scripts/build-spec.sh. The manifest is read at module scope so bumping
+ * SPEC_DOCX in the build script ships a new spec version with no TSX edits.
  */
 
 import type { Metadata } from 'next'
 import fs from 'fs'
 import path from 'path'
+import Link from 'next/link'
 import DocsLayout from '@/components/docs/DocsLayout'
 
 export const metadata: Metadata = {
   title: 'STAS 3.0 Specification',
   description:
-    'Canonical wire-format and state-machine reference for the STAS 3.0 token protocol. Last updated: v0.2.1, 2026-05-02.',
+    'Download the canonical STAS 3.0 specification document. Protocol highlights: P2MPKH, var2 action data, protoID, divisible swap, freeze/confiscation, Bundle Factory, OP_PUSH_TX.',
   alternates: { canonical: '/docs/spec' },
 }
 
+type Highlight = { title: string; href: string; body: string }
+
+const HIGHLIGHTS: Highlight[] = [
+  {
+    title: 'P2MPKH',
+    href: '/docs/stas#p2mpkh',
+    body: 'm-of-n multisig ownership; on-chain indistinguishable from P2PKH until spend.',
+  },
+  {
+    title: 'var2 (structured action data)',
+    href: '/docs/stas',
+    body: 'Per-spend action data carrying swap descriptors, freeze markers, or owner-defined bytes.',
+  },
+  {
+    title: 'protoID (token identity)',
+    href: '/docs/stas#protoid',
+    body: '20-byte token identity anchored to the issuer’s redemption address.',
+  },
+  {
+    title: 'Divisible swap',
+    href: '/docs/swap',
+    body: 'Atomic on-chain exchange between two STAS token types with exchange-rate enforcement.',
+  },
+  {
+    title: 'Freeze / confiscation',
+    href: '/docs/stas#flags',
+    body: 'Optional, issuance-time flagged authority addresses for regulated assets.',
+  },
+  {
+    title: 'Bundle Factory',
+    href: '/docs/stas#bundle-factory',
+    body: 'Plans merge/split/transfer chains for multi-recipient payouts from a wallet’s UTXO set.',
+  },
+  {
+    title: 'OP_PUSH_TX validation',
+    href: '/docs/stas',
+    body: 'Miner-enforced validation via sighash preimage; every operation is checked on-chain.',
+  },
+]
+
 /**
- * Reads the manifest and spec HTML at build time.
- * @returns specHtml - the pandoc-generated HTML string
- * @returns docxHref - URL path for the download button
+ * Reads the manifest at build time to discover the current docx filename.
+ * @returns docxHref - URL path under /spec/ for the download button
  */
-function loadSpec(): { specHtml: string; docxHref: string } {
+function loadDocxHref(): string {
   const specDir = path.join(process.cwd(), 'public', 'spec')
   const manifestPath = path.join(specDir, 'manifest.json')
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
@@ -37,76 +78,90 @@ function loadSpec(): { specHtml: string; docxHref: string } {
     docx: string
     source: string
   }
-
-  const htmlPath = path.join(specDir, manifest.html)
-  const specHtml = fs.readFileSync(htmlPath, 'utf8')
-
-  return { specHtml, docxHref: `/spec/${manifest.docx}` }
+  return `/spec/${manifest.docx}`
 }
 
-const { specHtml, docxHref } = loadSpec()
+const docxHref = loadDocxHref()
 
-/** SpecPage — full-page view of the STAS 3.0 protocol specification. */
+/** SpecPage — download-and-highlights view of the STAS 3.0 specification. */
 export default function SpecPage() {
   return (
     <DocsLayout
       title="STAS 3.0 Specification"
       description="Canonical wire-format and state-machine reference. Last updated: v0.2.1, 2026-05-02."
     >
-      {/* Header actions */}
-      <section className="mb-8 flex flex-wrap gap-3">
-        <a
-          href={docxHref}
-          download
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md
-                     bg-[#58a6ff]/10 text-[#58a6ff] border border-[#58a6ff]/30
-                     hover:bg-[#58a6ff]/20 hover:border-[#58a6ff] transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Download original (.docx)
-        </a>
-        <a
-          href="https://github.com/stassso/STAS-3-script-templates"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md
-                     bg-[#21262d] text-[#c9d1d9] border border-[#30363d]
-                     hover:text-white hover:border-[#58a6ff] transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-          </svg>
-          View source on GitHub ↗
-        </a>
+      <section className="mb-8">
+        <p className="text-[#c9d1d9] leading-relaxed mb-6">
+          The authoritative STAS 3.0 protocol document — wire format, locking-script
+          structure, opcode tables, and state-machine rules — is distributed as a
+          single .docx. Download it for the full text; the bullets below are a
+          non-normative summary of what the protocol provides.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href={docxHref}
+            download
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md
+                       bg-[#58a6ff]/10 text-[#58a6ff] border border-[#58a6ff]/30
+                       hover:bg-[#58a6ff]/20 hover:border-[#58a6ff] transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download specification (.docx)
+          </a>
+          <a
+            href="https://github.com/stassso/STAS-3-script-templates"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md
+                       bg-[#21262d] text-[#c9d1d9] border border-[#30363d]
+                       hover:text-white hover:border-[#58a6ff] transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            View script templates on GitHub ↗
+          </a>
+        </div>
       </section>
 
-      {/* Spec content — source is pandoc output of the authoritative docx, not user input */}
-      <article
-        className="
-          prose prose-invert max-w-none
-          prose-headings:text-white
-          prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4
-          prose-h3:text-lg prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
-          prose-h4:text-base prose-h4:font-semibold prose-h4:mt-4 prose-h4:mb-2
-          prose-p:text-[#c9d1d9] prose-p:leading-relaxed
-          prose-a:text-[#58a6ff] prose-a:no-underline hover:prose-a:text-white
-          prose-strong:text-white
-          prose-code:text-[#58a6ff] prose-code:bg-[#0d1117] prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
-          prose-pre:bg-[#0d1117] prose-pre:border prose-pre:border-[#30363d] prose-pre:rounded-lg
-          prose-table:text-sm prose-table:w-full
-          prose-thead:border-b prose-thead:border-[#30363d]
-          prose-th:text-[#8b949e] prose-th:font-medium prose-th:py-2 prose-th:pr-4 prose-th:text-left
-          prose-td:text-[#c9d1d9] prose-td:py-2 prose-td:pr-4 prose-td:border-b prose-td:border-[#21262d]
-          prose-hr:border-[#30363d]
-          prose-li:text-[#c9d1d9]
-          prose-ul:list-disc prose-ol:list-decimal
-        "
-        dangerouslySetInnerHTML={{ __html: specHtml }}
-      />
+      <section className="mb-10">
+        <h2 className="text-xl font-semibold text-white mb-4">Protocol Highlights</h2>
+        <ul className="space-y-3">
+          {HIGHLIGHTS.map((h) => (
+            <li
+              key={h.title}
+              className="p-4 bg-[#0d1117] border border-[#30363d] rounded-lg"
+            >
+              <Link
+                href={h.href}
+                className="text-sm font-semibold text-[#58a6ff] hover:text-white transition-colors"
+              >
+                {h.title}
+              </Link>
+              <p className="text-sm text-[#c9d1d9] mt-1">{h.body}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="mb-10">
+        <div className="p-4 bg-[#0d1117] border border-[#58a6ff]/30 rounded-lg">
+          <p className="text-sm text-[#c9d1d9]">
+            Looking for usage examples?{' '}
+            <Link
+              href="/docs/sdks"
+              className="text-[#58a6ff] hover:text-white transition-colors font-medium"
+            >
+              SDK Reference
+            </Link>{' '}
+            covers the Rust and Elixir libraries that build and validate STAS transactions.
+          </p>
+        </div>
+      </section>
     </DocsLayout>
   )
 }

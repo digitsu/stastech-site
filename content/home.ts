@@ -260,7 +260,7 @@ export const tabs: AudienceTab[] = [
     withoutWith: [
       {
         without: "Manage API keys per integration",
-        with: "npm install dxs-stas-sdk",
+        with: "npm install dxs-bsv-token-sdk",
       },
       {
         without: "Index the entire ledger to compute balances",
@@ -294,21 +294,29 @@ export const tabs: AudienceTab[] = [
       "Consigliere indexer — stress-tested at 150 million transactions/day.",
       "SDK status — TypeScript and C# in production. Elixir and Rust beta.",
     ],
-    // TODO(code-sample): replace with a verified dxs-stas-sdk issuance call
-    // pulled from the published package README before launch.
+    // Source: dxs-bsv-token-sdk README quickstart (BuildDstasIssueTxs).
     codeSample: {
-      install: "npm install dxs-stas-sdk",
-      code: `import { dstas, bsv } from "dxs-stas-sdk";
+      install: "npm install dxs-bsv-token-sdk",
+      code: `import { dstas } from "dxs-bsv-token-sdk/dstas";
+import { bsv } from "dxs-bsv-token-sdk/bsv";
 
-// Issue a divisible token in a single SDK call.
-const issuerKey = bsv.PrivateKey.fromWIF(process.env.ISSUER_WIF);
-const issueTx = await dstas.issue({
-  symbol: "DEMO",
-  totalSupply: 1_000_000,
-  decimals: 2,
-  issuerKey,
-});
-console.log("Issued in tx:", issueTx.id);`,
+// Define a divisible token, no admin authorities.
+const issuer = new bsv.PrivateKey(bsv.fromHex(process.env.ISSUER_KEY_HEX));
+const scheme = new bsv.TokenScheme(
+  "Demo", bsv.toHex(issuer.Address.Hash160), "DEMO", 1,
+  { isDivisible: true },
+);
+
+// Issue the supply in one Bitcoin transaction.
+const fundingTx = bsv.TransactionReader.readHex(process.env.FUNDING_TX_HEX);
+const fundingOut = bsv.OutPoint.fromTransaction(fundingTx, 0);
+
+const { issueTxHex } = dstas.BuildDstasIssueTxs({
+  fundingPayment: { OutPoint: fundingOut, Owner: issuer },
+  scheme,
+  destinations: [{ Satoshis: 100, To: issuer.Address }],
+  feeRate: 0.1,
+});`,
     },
     faq: [
       {

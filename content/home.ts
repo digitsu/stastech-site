@@ -126,7 +126,7 @@ export const tabs: AudienceTab[] = [
     withoutWith: [
       {
         without: "Issuer co-signs every transfer",
-        with: "Issuer co-signs nothing; transfers are peer-to-peer",
+        with: "Issuer co-signs nothing. Transfers are peer-to-peer.",
       },
       {
         without: "Freeze requires foundation vote or miner intervention",
@@ -153,7 +153,7 @@ export const tabs: AudienceTab[] = [
       },
       {
         title: "No co-signing bottleneck",
-        body: "Transfers are peer-to-peer; issuer's signature is not in the transaction path. Blockchain throughput is the only ceiling. At 1,000,000+ TPS (Teranode tested), your token's growth stops costing you another headcount in the signing-server team.",
+        body: "Transfers are peer-to-peer. The issuer's signature is not in the transaction path. Blockchain throughput is the only ceiling. At 1,000,000+ TPS (Teranode tested), your token's growth stops costing you another headcount in the signing-server team.",
       },
     ],
     proof: [
@@ -198,7 +198,7 @@ export const tabs: AudienceTab[] = [
       },
       {
         without: "Sequencer can censor or reorder",
-        with: "Script-enforced exchange rate; no operator",
+        with: "Script-enforced exchange rate. No operator.",
       },
       {
         without: "Wrapped tokens drift from the underlying",
@@ -212,7 +212,7 @@ export const tabs: AudienceTab[] = [
     features: [
       {
         title: "True Layer-1 atomic swaps",
-        body: 'Maker publishes a UTXO at a script-enforced rate; takers fill partially or fully; cancellation is one transaction. No bridge, no sequencer, no wrapped token in the path. You stop reading post-mortems on Monday morning. Your security team stops triaging "is our bridge in this exploit?" pages.',
+        body: 'Maker publishes a UTXO at a script-enforced rate. Takers fill partially or fully. Cancellation is one transaction. No bridge, no sequencer, no wrapped token in the path. You stop reading post-mortems on Monday morning. Your security team stops triaging "is our bridge in this exploit?" pages.',
       },
       {
         title: "Partial fills as one L1 transaction",
@@ -220,7 +220,7 @@ export const tabs: AudienceTab[] = [
       },
       {
         title: "Makers cancel anytime",
-        body: "Spend the UTXO back to yourself; the order is gone. No stuck-order incidents, no race conditions on cancel, no operator latency on critical path. The trader who needs to pull a quote in volatile market conditions can do it in one block, not whenever your matching engine acknowledges the cancel.",
+        body: "Spend the UTXO back to yourself. The order is gone. No stuck-order incidents, no race conditions on cancel, no operator latency on critical path. The trader who needs to pull a quote in volatile market conditions can do it in one block, not whenever your matching engine acknowledges the cancel.",
       },
     ],
     proof: [
@@ -282,7 +282,7 @@ export const tabs: AudienceTab[] = [
       },
       {
         title: "Two open-source indexers",
-        body: "Consigliere (C# / .NET) and Athanor (Elixir / Phoenix). Watch the addresses and tokens you care about; skip the full-node operation. Consigliere has been stress-tested at 150 million transactions per day. It is the piece of your stack you stop paging on.",
+        body: "Consigliere (C# / .NET) and Athanor (Elixir / Phoenix). Watch the addresses and tokens you care about. Skip the full-node operation. Consigliere has been stress-tested at 150 million transactions per day. It is the piece of your stack you stop paging on.",
       },
       {
         title: "Protocol locked April 2026",
@@ -431,7 +431,7 @@ export const threeOperations = {
 
 export const finalCta = {
   headline: "Issue your first STAS token in under an hour.",
-  body: "MIT-licensed. No API keys. No permission required. No license fees, ever. Built on a Bitcoin protocol that does not change after April 2026.",
+  body: "MIT-licensed and free to use forever. Install it without API keys or permission. Built on a Bitcoin protocol that does not change after April 2026.",
   primaryCta: { label: "Get the SDK", href: links.sdk },
   secondaryCta: { label: "Read the spec", href: links.spec },
   trustMicroLine:

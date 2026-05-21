@@ -61,19 +61,19 @@ const currentSdks = [
     ],
   },
   {
-    name: 'dxs-stas-sdk',
+    name: 'dxs-bsv-token-sdk',
     language: 'TypeScript',
     status: 'Production',
     gen1: false,
     gen2: true,
     stas30: true,
-    bundleFactory: false,
+    bundleFactory: true,
     links: [
-      { label: 'npm', href: 'https://www.npmjs.com/package/dxs-stas-sdk' },
-      { label: 'GitHub', href: 'https://github.com/dxsapp/dxs-stas-sdk' },
+      { label: 'npm', href: 'https://www.npmjs.com/package/dxs-bsv-token-sdk' },
+      { label: 'GitHub', href: 'https://github.com/dxsapp/dxs-bsv-token-sdk' },
     ],
-    description: 'TypeScript SDK with Gen2 and earlier 3.0 template coverage. Suitable for Node.js backends and browser-based applications. Not yet aligned with the finalized STAS 3.0 v0.2.1 spec — see footnote below.',
-    capabilities: ['Gen2 and 3.0 token templates', 'Provenance validation via indexer integration'],
+    description: 'TypeScript SDK for BSV transactions with STAS 3.0 support via its DSTAS surface. Split entrypoints: dxs-bsv-token-sdk/dstas, /stas, and /bsv. Suitable for Node.js backends and browser-based applications. Renamed from dxs-stas-sdk; the old package remains on npm but the canonical surface is now dxs-bsv-token-sdk.',
+    capabilities: ['Gen2 and 3.0 token templates', 'Bundle Factory (DstasBundleFactory) for multi-recipient payouts', 'Provenance validation via indexer integration'],
   },
 ]
 
@@ -117,13 +117,15 @@ export default function SdksDocs() {
         <h2 className="text-xl font-semibold text-white mb-6">Generation Support Matrix</h2>
         <p className="text-sm text-[#8b949e] mb-4">
           The <strong className="text-white">STAS 3.0</strong> column reflects support for the
-          broader 3.0 template family. As of the v0.2.1 finalized spec, parity with the binding
-          v0.2.1 details (OP_SPLIT-based P2MPKH body, scaled-dividend rate math, owner-keyed
-          arbitrator-free swaps, recursive <code className="text-[#58a6ff]">next</code>, etc.) is
-          shipped in <code className="text-[#58a6ff]">bsv-sdk-rust</code> and{' '}
-          <code className="text-[#58a6ff]">bsv_sdk_elixir</code> only;{' '}
-          <code className="text-[#58a6ff]">dxs-stas-sdk</code> still tracks an earlier 3.0 working
-          draft and may not yet match v0.2.1 byte-for-byte.
+          broader 3.0 template family. As of the v0.2.3 finalized spec, parity with the binding
+          v0.2.3 details (OP_SPLIT-based P2MPKH body, scaled-dividend rate math, owner-keyed
+          arbitrator-free swaps, separate-pushdata swap-piece arrays, recursive{' '}
+          <code className="text-[#58a6ff]">next</code>, etc.) is shipped in{' '}
+          <code className="text-[#58a6ff]">bsv-sdk-rust</code> and{' '}
+          <code className="text-[#58a6ff]">bsv_sdk_elixir</code>;{' '}
+          <code className="text-[#58a6ff]">dxs-bsv-token-sdk</code> (renamed from{' '}
+          <code className="text-[#58a6ff]">dxs-stas-sdk</code>) ships its own STAS 3.0 surface,
+          but byte-level alignment with v0.2.3 has not been independently verified.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">

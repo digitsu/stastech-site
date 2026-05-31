@@ -49,7 +49,7 @@ const currentSdks = [
     links: [
       { label: 'HexDocs', href: 'https://hexdocs.pm/bsv_sdk' },
       { label: 'GitHub', href: 'https://github.com/Bittoku/bsv_sdk_elixir' },
-      { label: 'v1.4.0 Release', href: 'https://hex.pm/packages/bsv_sdk/1.4.0' },
+      { label: 'v2.0.1 Release', href: 'https://hex.pm/packages/bsv_sdk/2.0.1' },
     ],
     description: 'Elixir SDK with factory modules for Gen2 and 3.0 STAS templates. Leverages OTP for concurrent token operations.',
     capabilities: [

@@ -136,8 +136,7 @@ export default function SdksDocs() {
                 <th className="text-center py-3 px-3 text-[#8b949e] font-medium">Gen 2</th>
                 <th className="text-center py-3 px-3 text-[#8b949e] font-medium">STAS 3.0</th>
                 <th className="text-center py-3 px-3 text-[#8b949e] font-medium">Bundle Factory</th>
-                <th className="text-left py-3 px-3 text-[#8b949e] font-medium">Language</th>
-                <th className="text-left py-3 pl-3 text-[#8b949e] font-medium">Status</th>
+                <th className="text-left py-3 pl-3 text-[#8b949e] font-medium">Language</th>
               </tr>
             </thead>
             <tbody>
@@ -150,12 +149,7 @@ export default function SdksDocs() {
                   <td className="text-center py-3 px-3"><SupportBadge supported={sdk.gen2} /></td>
                   <td className="text-center py-3 px-3"><SupportBadge supported={sdk.stas30} /></td>
                   <td className="text-center py-3 px-3"><SupportBadge supported={sdk.bundleFactory} /></td>
-                  <td className="py-3 px-3 text-[#c9d1d9]">{sdk.language}</td>
-                  <td className="py-3 pl-3">
-                    <span className="text-xs font-medium text-[#3fb950] bg-[#3fb950]/10 px-2 py-0.5 rounded-full">
-                      {sdk.status}
-                    </span>
-                  </td>
+                  <td className="py-3 pl-3 text-[#c9d1d9]">{sdk.language}</td>
                 </tr>
               ))}
             </tbody>
